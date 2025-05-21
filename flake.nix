@@ -6,8 +6,8 @@
   inputs.treefmt-nix.url = "github:numtide/treefmt-nix";
   inputs.sops-nix.url = "github:Mic92/sops-nix";
 
-
-  outputs = { self, ... }@inputs:
+  outputs =
+    { self, ... }@inputs:
     let
 
       pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
@@ -16,7 +16,7 @@
 
       treefmtEval = inputs.treefmt-nix.lib.evalModule pkgs {
         projectRootFile = "flake.nix";
-        programs.nixpkgs-fmt.enable = true;
+        programs.nixfmt.enable = true;
       };
 
       formatter = treefmtEval.config.build.wrapper;
