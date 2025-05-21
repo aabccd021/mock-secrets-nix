@@ -12,6 +12,8 @@
 
       pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
 
+      lib.secrets = import ./secrets;
+
       treefmtEval = inputs.treefmt-nix.lib.evalModule pkgs {
         projectRootFile = "flake.nix";
         programs.nixpkgs-fmt.enable = true;
@@ -40,6 +42,7 @@
       checks.x86_64-linux = packages;
       formatter.x86_64-linux = formatter;
       devShells.x86_64-linux = devShells;
+      lib = lib;
 
     };
 }
