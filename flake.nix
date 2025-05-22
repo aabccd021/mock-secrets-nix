@@ -25,10 +25,37 @@
         buildInputs = [ pkgs.nixd ];
       };
 
-      packages = devShells // {
-        formatting = treefmtEval.config.build.check self;
-        formatter = formatter;
+      scripts.generate-age = pkgs.writeShellApplication {
+        name = "generate-age";
+        runtimeInputs = [ pkgs.age ];
+        text = ''
+          if [ $# -ne 1 ]; then
+            echo "Error: Please provide an identifier as argument"
+            echo "Usage: $0 <identifier>"
+            exit 1
+          fi
+
+          trap 'cd $(pwd)' EXIT
+          repo_root=$(git rev-parse --show-toplevel)
+          cd "$repo_root" || exit
+
+          identifier="$1"
+
+          private_key_file="./secrets/age-$identifier-private.txt"
+          public_key_file="./secrets/age-$identifier-public.txt"
+
+          age-keygen -o "$private_key_file"
+          age-keygen -y "$private_key_file" > "$public_key_file"
+        '';
       };
+
+      packages =
+        scripts
+        // devShells
+        // {
+          formatting = treefmtEval.config.build.check self;
+          formatter = formatter;
+        };
 
     in
 
