@@ -49,6 +49,30 @@
         '';
       };
 
+      scripts.generate-ed25519 = pkgs.writeShellApplication {
+        name = "generate-ed25519";
+        runtimeInputs = [ pkgs.openssh ];
+        text = ''
+          if [ $# -ne 1 ]; then
+            echo "Error: Please provide an identifier as argument"
+            echo "Usage: $0 <identifier>"
+            exit 1
+          fi
+
+          trap 'cd $(pwd)' EXIT
+          repo_root=$(git rev-parse --show-toplevel)
+          cd "$repo_root" || exit
+
+          identifier="$1"
+
+          private_key_file="./secrets/ed25519-$identifier-private.txt"
+          public_key_file="./secrets/ed25519-$identifier-public.txt"
+
+          ssh-keygen -t ed25519 -f "$private_key_file" -N "" -C "$identifier" -q
+          mv "$private_key_file.pub" "$public_key_file"
+        '';
+      };
+
       packages =
         scripts
         // devShells
