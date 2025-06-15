@@ -9,10 +9,23 @@
   outputs =
     { self, ... }@inputs:
     let
+      lib = inputs.nixpkgs.lib;
+
+      collectInputs =
+        is:
+        pkgs.linkFarm "inputs" (
+          builtins.mapAttrs (
+            name: i:
+            pkgs.linkFarm name {
+              self = i.outPath;
+              deps = collectInputs (lib.attrByPath [ "inputs" ] { } i);
+            }
+          ) is
+        );
 
       pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
 
-      lib.secrets = import ./secrets;
+      libs.secrets = import ./secrets;
 
       treefmtEval = inputs.treefmt-nix.lib.evalModule pkgs {
         projectRootFile = "flake.nix";
@@ -79,6 +92,7 @@
         // {
           formatting = treefmtEval.config.build.check self;
           formatter = formatter;
+          allInputs = collectInputs inputs;
         };
 
     in
@@ -93,7 +107,7 @@
       checks.x86_64-linux = packages;
       formatter.x86_64-linux = formatter;
       devShells.x86_64-linux = devShells;
-      lib = lib;
+      lib = libs;
 
     };
 }
