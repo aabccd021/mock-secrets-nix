@@ -27,6 +27,10 @@
 
       libs.secrets = import ./secrets;
 
+      overlays.default = final: prev: {
+        mock-secrets = libs.secrets;
+      };
+
       treefmtEval = inputs.treefmt-nix.lib.evalModule pkgs {
         projectRootFile = "flake.nix";
         programs.nixfmt.enable = true;
@@ -108,6 +112,7 @@
       formatter.x86_64-linux = formatter;
       devShells.x86_64-linux = devShells;
       lib = libs;
+      overlays = overlays;
 
     };
 }
