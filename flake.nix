@@ -4,22 +4,45 @@
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
   inputs.treefmt-nix.url = "github:numtide/treefmt-nix";
+  inputs.sops-nix.url = "github:Mic92/sops-nix";
 
   outputs =
     { self, ... }@inputs:
     let
+      lib = inputs.nixpkgs.lib;
+
+      collectInputs =
+        is:
+        pkgs.linkFarm "inputs" (
+          builtins.mapAttrs (
+            name: i:
+            pkgs.linkFarm name {
+              self = i.outPath;
+              deps = collectInputs (lib.attrByPath [ "inputs" ] { } i);
+            }
+          ) is
+        );
 
       pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
+
+      libs.secrets = import ./secrets;
+
+      overlays.default = final: prev: {
+        mock-secrets = libs.secrets;
+      };
 
       treefmtEval = inputs.treefmt-nix.lib.evalModule pkgs {
         projectRootFile = "flake.nix";
         programs.nixfmt.enable = true;
-        programs.prettier.enable = true;
       };
 
-      packages.formatting = treefmtEval.config.build.check self;
+      formatter = treefmtEval.config.build.wrapper;
 
-      packages.generate-age = pkgs.writeShellApplication {
+      devShells.default = pkgs.mkShellNoCC {
+        buildInputs = [ pkgs.nixd ];
+      };
+
+      scripts.generate-age = pkgs.writeShellApplication {
         name = "generate-age";
         runtimeInputs = [ pkgs.age ];
         text = ''
@@ -43,7 +66,7 @@
         '';
       };
 
-      packages.generate-ed25519 = pkgs.writeShellApplication {
+      scripts.generate-ed25519 = pkgs.writeShellApplication {
         name = "generate-ed25519";
         runtimeInputs = [ pkgs.openssh ];
         text = ''
@@ -67,28 +90,29 @@
         '';
       };
 
-      nixosModules.default =
-        { lib, ... }:
-        {
-          options.mock-secrets = lib.mkOption {
-            readOnly = true;
-            default = {
-              age.alice.public = builtins.readFile ./secrets/age-alice-public.txt;
-              age.alice.private = builtins.readFile ./secrets/age-alice-private.txt;
-              ed25519.alice.public = builtins.readFile ./secrets/ed25519-alice-public.txt;
-              ed25519.alice.private = builtins.readFile ./secrets/ed25519-alice-private.txt;
-              ed25519.bob.public = builtins.readFile ./secrets/ed25519-bob-public.txt;
-              ed25519.bob.private = builtins.readFile ./secrets/ed25519-bob-private.txt;
-            };
-          };
+      packages =
+        scripts
+        // devShells
+        // {
+          formatting = treefmtEval.config.build.check self;
+          formatter = formatter;
+          allInputs = collectInputs inputs;
         };
 
     in
 
     {
-      packages.x86_64-linux = packages;
+
+      packages.x86_64-linux = packages // rec {
+        gcroot = pkgs.linkFarm "gcroot" packages;
+        default = gcroot;
+      };
+
       checks.x86_64-linux = packages;
-      formatter.x86_64-linux = treefmtEval.config.build.wrapper;
-      nixosModules = nixosModules;
+      formatter.x86_64-linux = formatter;
+      devShells.x86_64-linux = devShells;
+      lib = libs;
+      overlays = overlays;
+
     };
 }
