@@ -58,12 +58,14 @@
         '';
       };
 
+      secrets = builtins.fromJSON (builtins.readFile ./secrets.json);
+
       nixosModules.default =
         { lib, ... }:
         {
           options.mock-secrets = lib.mkOption {
             readOnly = true;
-            default = builtins.fromJSON (builtins.readFile ./secrets.json);
+            default = secrets;
           };
         };
 
@@ -74,6 +76,7 @@
       checks.x86_64-linux = packages;
       formatter.x86_64-linux = treefmtEval.config.build.wrapper;
       nixosModules = nixosModules;
+      lib.secrets = secrets;
 
     };
 }
