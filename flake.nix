@@ -53,10 +53,19 @@
 
           ssh-keygen -t ed25519 -f ./temp_key -N "" -C "$1" -q
 
-          jq --arg id "$1" --arg private "$(cat ./temp_key)" --arg public "$(cat ./temp_key.pub)" \
+          jq --arg id "$1" --rawfile private ./temp_key --rawfile public ./temp_key.pub \
           '.ed25519[$id] = {private: $private, public: $public}' "$json_file" | sponge "$json_file"
         '';
       };
+
+      nixosModules.default =
+        { lib, ... }:
+        {
+          options.mock-secrets = lib.mkOption {
+            readOnly = true;
+            default = builtins.fromJSON (builtins.readFile ./secrets.json);
+          };
+        };
 
     in
 
@@ -64,5 +73,7 @@
       packages.x86_64-linux = packages;
       checks.x86_64-linux = packages;
       formatter.x86_64-linux = treefmtEval.config.build.wrapper;
+      nixosModules = nixosModules;
+
     };
 }
